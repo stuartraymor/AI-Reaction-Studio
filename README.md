@@ -1,3 +1,11 @@
+# AI Reaction Studio — development fork
+
+The first local reaction-video prototype is implemented and tested: reviewed script → local neural voice → animated character → editable pause-and-react timeline → MP4.
+
+Start with [AI Reaction Studio instructions](REACTION-STUDIO.md) and the [development record](REACTION-STUDIO-DEVELOPMENT.md). Automated video understanding, the dedicated workspace and a branded Windows installer are still pending. The original FilmCraft documentation follows.
+
+---
+
 <p align="center">
   <a href="https://getartcraft.com/">
     <picture>

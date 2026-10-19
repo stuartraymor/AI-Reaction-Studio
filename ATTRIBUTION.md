@@ -168,3 +168,11 @@ SHA-256 (`crates/speech/src/models.rs`, `docs/transcripts.md`).
 | Asset | Author | Source | Licence |
 |---|---|---|---|
 | Whisper tiny / base / small speech-recognition weights (`model.safetensors`, `config.json`, `generation_config.json`, `tokenizer.json`) | OpenAI | `https://huggingface.co/openai/whisper-{tiny,base,small}` (revisions `169d4a43…`, `e37978b9…`, `973afd24…`); weights released with `https://github.com/openai/whisper` | MIT (weights and code, github.com/openai/whisper); the Hugging Face conversion is labelled Apache-2.0 |
+
+## AI Reaction Studio prototype (original code-drawn assets)
+
+| Asset | Author | Source | Licence |
+|---|---|---|---|
+| Procedural ellipse character in `apps/filmcraft-cli/examples/reaction_prototype.rs` | AI Reaction Studio contributors | Original work; generic geometry, no reference artwork | MIT OR Apache-2.0 |
+| Kokoro-82M weights and voice packs (downloaded only, not bundled) | hexgrad / rzvzn | https://huggingface.co/hexgrad/Kokoro-82M, pinned by `crates/tts/src/catalog.rs` | Apache-2.0 as declared on the model card; no separate upstream LICENSE file |
+| CMUdict pronunciation dictionary (downloaded only) | Carnegie Mellon University | https://github.com/cmusphinx/cmudict, pinned by `crates/tts/src/catalog.rs` | BSD-style; upstream notice retained |
