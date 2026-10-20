@@ -173,6 +173,9 @@ SHA-256 (`crates/speech/src/models.rs`, `docs/transcripts.md`).
 
 | Asset | Author | Source | Licence |
 |---|---|---|---|
+| `apps/reaction-studio/assets/icon.png`, `apps/reaction-studio/assets/icon.ico` | AI Reaction Studio contributors | Original procedural geometric character | MIT OR Apache-2.0 |
 | Procedural ellipse character in `apps/filmcraft-cli/examples/reaction_prototype.rs` | AI Reaction Studio contributors | Original work; generic geometry, no reference artwork | MIT OR Apache-2.0 |
 | Kokoro-82M weights and voice packs (downloaded only, not bundled) | hexgrad / rzvzn | https://huggingface.co/hexgrad/Kokoro-82M, pinned by `crates/tts/src/catalog.rs` | Apache-2.0 as declared on the model card; no separate upstream LICENSE file |
 | CMUdict pronunciation dictionary (downloaded only) | Carnegie Mellon University | https://github.com/cmusphinx/cmudict, pinned by `crates/tts/src/catalog.rs` | BSD-style; upstream notice retained |
+
+| Procedural ellipse character in `apps/reaction-studio/src/render.rs` | AI Reaction Studio contributors | Original work; generic geometry | MIT OR Apache-2.0 |

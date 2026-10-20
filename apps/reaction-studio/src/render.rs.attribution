@@ -1,0 +1,8 @@
+asset: render.rs procedural character geometry
+title: Original ellipse reaction character
+author: AI Reaction Studio contributors
+source: original work
+license: MIT OR Apache-2.0
+license-file: ../../../LICENSE-MIT
+added: 2026-10-19 by AI Reaction Studio contributors
+notes: Generic ellipses drawn from scratch; mouth follows narration amplitude.

@@ -1,41 +1,31 @@
-# AI Reaction Studio
+# AI Reaction Studio 0.2 Preview
 
-Development fork of [FilmCraft](https://github.com/storytold/filmcraft). The immediate milestone is a genuine local reaction-video pipeline. The complete one-click AI application, dedicated workspace and installer are not implemented yet.
+Local Windows workspace built on the open-source FilmCraft editing engine. This preview adds real video transcription, candidate scene cuts, sampled-frame descriptions, timestamp-linked script generation, local voices and editable pause-and-react videos.
 
-## Local acceptance prototype
+## Install
 
-Requires Windows 11, MSVC Build Tools and Rust 1.95 or later. No API keys, paid services or video uploads. The optional Kokoro model download is approximately 336 MB. Its weights/voices are declared Apache-2.0 on the [official model card](https://huggingface.co/hexgrad/Kokoro-82M); CMUdict is BSD-style. Model and generated media files stay outside Git.
+Run `AI-Reaction-Studio-0.2.0-Preview-Setup.exe` from this fork's GitHub Releases. Installation is per user, with a desktop shortcut and uninstaller. Requires 64-bit Windows and the Microsoft Visual C++ x64 runtime already installed. This development preview is unsigned. The installer includes the local llama.cpp runtime and an unmodified FilmCraft editor, with license notices; no paid service or API key is required.
 
-```powershell
-git clone https://github.com/stuartraymor/AI-Reaction-Studio.git
-cd AI-Reaction-Studio
-git switch ai-reaction-studio
-./scripts/reaction-prototype.ps1
-# Or supply a 3–60 second authorized local video and a reviewed UTF-8 script:
-./scripts/reaction-prototype.ps1 -Source C:/Videos/test.mp4 -Script C:/Videos/script.txt
-```
+Launch AI Reaction Studio, select **Download local models**, and allow approximately 3.6 GB for verified model downloads. Models, settings and projects live under `%LOCALAPPDATA%\AI Reaction Studio`; uninstall preserves them. Inference stays on this computer. Internet is used to download the pinned models, not to upload source media. Allow several minutes for CPU inference and at least 8 GB available RAM; the writer alone used approximately 5 GB in testing.
 
-The script builds the existing CLI and the Rust prototype, downloads the pinned local voices through FilmCraft's existing downloader, and uses original procedural footage if no source is supplied. The reaction pauses the source at two seconds, speaks a reviewed script with a local neural voice, shows a simple original shape character with audio-energy-driven mouth animation, and resumes the original video. Output is 640×360 at 24 fps. The prototype has deliberate short-video limits; it does not analyze the video or generate factual commentary.
+Choose a local video, analyze it, choose perspective/intensity and generate a script. Review and edit each reaction, approve it, then render. The output includes an MP4, editable `.fcproj`, separate narration WAVs, analysis, approved script and timeline provenance. Use **Open in editor** for further edits. Keep the source video and generated assets available when reopening projects.
 
-Output includes `reaction.mp4`, editable `reaction.fcproj`, separate narration WAV, reviewed script, timestamp provenance, timeline inspection, export result and reopened timeline. Reruns refuse to overwrite a saved project. Original audio is absent during the inserted pause; the source audio resumes with its matching picture. Mouth motion is basic amplitude animation, not phoneme-accurate lip sync. No subtitles or advanced avatar provider are implemented in this prototype.
+## What this preview supports
 
-Open the editable project:
+* Local 3-second to 15-minute videos, up to eight sampled frames and one to four reactions.
+* Whisper tiny transcription, candidate cut detection, SmolVLM2-500M visual observations and Qwen3-4B-Instruct-2507 commentary, all on CPU.
+* Eight perspective choices, intensity and custom directions; three Kokoro voices and two original procedural characters.
+* Pause-and-react editing at 640x360/24 fps, separate source/narration tracks, source-audio gaps during holds, basic audio-energy mouth animation and project reopen verification.
+* Editable saved drafts, progress reporting, errors, and cancellation at stage boundaries (an active model request may take up to three minutes to return).
 
-```powershell
-cargo run -p filmcraft -- C:/path/to/reaction.fcproj
-```
+Model descriptions and argument interpretations can be wrong. Sampled frames do not cover every event. Perspective selection is guidance, not a guarantee of viewpoint fidelity. Every generated reaction is labelled opinion and requires review; no independent factual verification occurs. Speaker identity is not inferred. YouTube import, subtitles, advanced avatars, phoneme lip sync, all requested editing styles and broad production QA remain future work. The bundled original editor has a known preview-audio issue on the development machine; exported audio passed decoding.
 
-FilmCraft's stdio MCP server remains available through `filmcraft-cli mcp`; both MCP and this deterministic pipeline use the same `Session::execute` commands. The prototype adds no second editing or rendering engine.
+## Build and package
 
-See [development record](REACTION-STUDIO-DEVELOPMENT.md) for milestone status, actual acceptance evidence and remaining work. Upstream licenses and asset notices remain in place. ArtCraft branding has separate trademark restrictions and must be replaced before distributing a branded application release.
+Requires Rust 1.95+, MSVC Build Tools and Windows SDK. Run `cargo build --locked -p filmcraft-reaction-studio --bins`. Place a verified llama.cpp b11744 Windows CPU runtime in `runtime/` beside the executables, or set `REACTION_LLAMA_SERVER` to its server executable. `REACTION_STUDIO_DATA_DIR` overrides app data for isolated testing.
 
-## Repeat acceptance checks
+`reaction-pipeline` exposes `setup`, `analyze SOURCE OUT`, `script ANALYSIS OUT PERSPECTIVE INTENSITY COUNT`, and `render ANALYSIS SCRIPT OUT --approve`. Render refuses to overwrite an existing saved project. The native workspace calls the same pipeline and FilmCraft Session commands.
 
-```powershell
-python -m pip install --target target/qa imageio-ffmpeg pillow
-$env:PYTHONPATH = "$PWD/target/qa"
-python scripts/verify-reaction-video.py C:/path/to/default-fixture-output
-python scripts/test-reaction-mcp.py
-```
+For packaging, generate dependency metadata with `cargo metadata --locked --filter-platform x86_64-pc-windows-msvc --format-version 1 > target/reaction-metadata.json`, then run `python scripts/collect-reaction-licenses.py target/reaction-metadata.json target/reaction-third-party-licenses.txt`. Run `packaging/windows/package-reaction.ps1` with `-NsisDirectory`, `-RuntimeDirectory`, `-EditorDirectory` (unmodified FilmCraft binaries) and `-OutputDirectory`. Model pins are in `apps/reaction-studio/models.json`; full notices ship with the installer. Models and test media are excluded from Git.
 
-The video checker targets the moving default fixture and fixed prototype layout. It decodes the complete output with external FFmpeg, checks freeze/resume frames, narration timing, source-audio gaps, mouth keyframes, finite voice samples and project reopening, and produces a contact sheet. It is test tooling, not a runtime video-processing dependency. Static custom footage needs different motion acceptance criteria.
+The earlier deterministic prototype remains available through `scripts/reaction-prototype.ps1`. See [development record](REACTION-STUDIO-DEVELOPMENT.md) for actual acceptance evidence and limitations.

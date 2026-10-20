@@ -1,0 +1,38 @@
+AI Reaction Studio 0.2 development preview
+
+Application and FilmCraft editing engine:
+  AI Reaction Studio contributors; ArtCraft Team and FilmCraft contributors
+  MIT OR Apache-2.0. Full texts are included as LICENSE-MIT and LICENSE-APACHE.
+  https://github.com/stuartraymor/AI-Reaction-Studio
+  https://github.com/storytold/filmcraft
+The editor/ folder contains the unmodified FilmCraft editor from the verified
+baseline build, with its original identity. The separate reaction workspace has
+its own original icon and branding. FilmCraft itself is alpha software.
+
+Local model runtime (separate process, not a second editing engine):
+  llama.cpp b11744, ggml-org contributors, MIT.
+  https://github.com/ggml-org/llama.cpp/tree/b11744
+  Full runtime notices are in runtime/LICENSE-llama.cpp and
+  runtime/LICENSE-LLVM-OpenMP (Apache-2.0 with LLVM exceptions).
+
+Models are NOT bundled. The app's Download local models action downloads the
+pinned files shown in models.json and FilmCraft's upstream model catalogs:
+  OpenAI Whisper tiny: MIT; official HF conversion Apache-2.0.
+  HuggingFaceTB SmolVLM2-500M and ggml-org GGUF conversion: Apache-2.0.
+  Qwen3-4B-Instruct-2507 (Unsloth GGUF conversion): Apache-2.0.
+  hexgrad Kokoro-82M weights/voices: Apache-2.0 as declared on model card.
+  CMUdict: Carnegie Mellon University BSD-style license.
+No model output is guaranteed accurate. Transcripts, visual observations and
+commentary must be reviewed. No independent source verification is implemented.
+
+NSIS builds this installer. NSIS is distributed under its zlib/libpng license;
+the NSIS compiler is a build dependency and is not installed by this package.
+
+Rust dependencies retain their upstream permissive licenses. See Cargo.lock,
+the repository's dependency declarations and upstream source notices.
+No FFmpeg binary is shipped or used by the application's production pipeline.
+Windows and the Microsoft VC++ runtime are platform prerequisites; this installer
+checks for vcruntime140.dll and does not download or install system components.
+
+This preview installer is unsigned. Projects, settings and downloaded models are
+retained on uninstall in the user's AI Reaction Studio data/project folders.

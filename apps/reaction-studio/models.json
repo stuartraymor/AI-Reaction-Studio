@@ -1,0 +1,35 @@
+{
+  "runtime": {
+    "version": "b11744",
+    "commit": "7adf160c4",
+    "license": "MIT",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11744/llama-b11744-bin-win-cpu-x64.zip",
+    "sha256": "e268ed355671854784889ccedeb8f55d46092f644cd84114a70d411424eeea8b"
+  },
+  "files": [
+    {
+      "name": "vision/SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "url": "https://huggingface.co/ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/resolve/ccd7aae53bcb1997355c2f094959e72b3642ce17/SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "sha256": "6f67b8036b2469fcd71728702720c6b51aebd759b78137a8120733b4d66438bc",
+      "size": 436808704,
+      "license": "Apache-2.0",
+      "author": "HuggingFaceTB; ggml-org GGUF conversion"
+    },
+    {
+      "name": "vision/mmproj-SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "url": "https://huggingface.co/ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/resolve/ccd7aae53bcb1997355c2f094959e72b3642ce17/mmproj-SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "sha256": "921dc7e259f308e5b027111fa185efcbf33db13f6e35749ddf7f5cdb60ef520b",
+      "size": 108785184,
+      "license": "Apache-2.0",
+      "author": "HuggingFaceTB; ggml-org GGUF conversion"
+    },
+    {
+      "name": "writer/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+      "size": 2497281120,
+      "license": "Apache-2.0",
+      "author": "Qwen; Unsloth GGUF conversion"
+    }
+  ]
+}

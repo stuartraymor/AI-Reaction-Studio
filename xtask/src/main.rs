@@ -87,6 +87,7 @@ const LAYERS: &[(&str, u8)] = &[
     ("filmcraft", 6),
     ("cli", 6),
     ("web", 6),
+    ("reaction-studio", 6),
 ];
 
 /// L0 crates that are not codecs/containers (no `bitstream`-only restriction).

@@ -1,0 +1,38 @@
+[package]
+name = "filmcraft-reaction-studio"
+version = "0.2.0"
+edition.workspace = true
+license.workspace = true
+description = "AI Reaction Studio local analysis, reviewed scripts and editable reaction production"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "ai-reaction-studio"
+path = "src/main.rs"
+
+[[bin]]
+name = "reaction-pipeline"
+path = "src/cli.rs"
+
+[dependencies]
+filmcraft-engine = { workspace = true, features = ["whisper", "neural-voices"] }
+filmcraft-speech = { workspace = true, features = ["whisper", "download"] }
+filmcraft-tts = { workspace = true }
+filmcraft-project = { workspace = true }
+filmcraft-time = { workspace = true }
+filmcraft-media = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+egui = { workspace = true }
+eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11"] }
+rfd = { workspace = true }
+ureq = { version = "3", default-features = false, features = ["json"] }
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png"] }
+sha2 = "0.10"
+open = "5"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
