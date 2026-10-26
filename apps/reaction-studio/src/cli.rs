@@ -1,16 +1,29 @@
-use filmcraft_reaction_studio::{Analysis, Progress, Result, Script, analysis, providers, read_json, render, save_json};
+use filmcraft_reaction_studio::{
+    Analysis, Progress, Result, Script, analysis, data_dir, download, pipeline, providers, read_json, render, revision, save_json, source,
+};
 use std::path::Path;
 
 fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let p = Progress { echo: true, ..Progress::default() };
     let get = |n: usize| -> Result<&str> {
-        args.get(n).map(String::as_str).ok_or_else(||format!("missing argument {n}; commands: setup | analyze SOURCE OUT | script ANALYSIS OUT PERSPECTIVE INTENSITY COUNT | render ANALYSIS SCRIPT OUT --approve | fixture OUT").into())
+        args.get(n).map(String::as_str).ok_or_else(||format!("missing argument {n}; commands: setup | make LINK_OR_FILE --out DIR [--style ID] [--approve] | download LINK_OR_FILE | analyze LINK_OR_FILE OUT | script ANALYSIS OUT PERSPECTIVE INTENSITY COUNT | render ANALYSIS SCRIPT OUT --approve | fixture OUT").into())
     };
     match get(1)? {
         "setup" => providers::setup(&p)?,
+        "make" => match pipeline::make_reaction_from_args(args.get(2..).unwrap_or(&[]), &p)? {
+            pipeline::Made::NeedsReview { script } => {
+                println!("Draft saved to {}. Review it, then run again with --approve to render.", script.display())
+            }
+            pipeline::Made::Rendered { folder } => println!("Reaction video ready: {}", folder.join("reaction.mp4").display()),
+        },
+        "download" => {
+            let path = download::fetch(&source::parse_source(get(2)?)?, &data_dir().join("downloads"), &p)?;
+            println!("{}", path.display());
+        }
         "analyze" => {
-            let a = analysis::analyze(Path::new(get(2)?), Path::new(get(3)?), &p)?;
+            let video = download::fetch(&source::parse_source(get(2)?)?, &data_dir().join("downloads"), &p)?;
+            let a = analysis::analyze(&video, Path::new(get(3)?), &p)?;
             println!("Analyzed {} evidence passages and {} sampled frames", a.evidence.len(), a.visuals.len());
         }
         "script" => {
@@ -19,10 +32,26 @@ fn run() -> Result<()> {
             save_json(Path::new(get(3)?), &script)?;
             println!("Draft saved; review before rendering");
         }
+        "regenerate" => {
+            let a: Analysis = read_json(Path::new(get(2)?))?;
+            let script: Script = read_json(Path::new(get(3)?))?;
+            let revised = revision::regenerate(&a, &script, get(5)?.parse()?, args.get(6).map(String::as_str).unwrap_or(""), &p)?;
+            save_json(Path::new(get(4)?), &revised)?;
+            println!("Replacement draft saved; review it before rendering");
+        }
         "render" => {
             let a: Analysis = read_json(Path::new(get(2)?))?;
             let s: Script = read_json(Path::new(get(3)?))?;
-            render::render(&a, &s, Path::new(get(4)?), "kokoro-heart", "Violet", get(5)? == "--approve", &p)?;
+            render::render_with_subtitles(
+                &a,
+                &s,
+                Path::new(get(4)?),
+                "kokoro-heart",
+                "Violet",
+                get(5)? == "--approve",
+                args.iter().any(|a| a == "--subtitles"),
+                &p,
+            )?;
         }
         "fixture" => {
             let out = Path::new(get(2)?);

@@ -1,15 +1,15 @@
 Unicode True
 !include "MUI2.nsh"
 !include "x64.nsh"
-Name "AI Reaction Studio 0.2 Preview"
+Name "AI Reaction Studio 0.4 Preview"
 OutFile "${OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\AI Reaction Studio"
 RequestExecutionLevel user
 SetCompressor /SOLID zlib
-VIProductVersion "0.2.0.0"
+VIProductVersion "0.4.0.0"
 VIAddVersionKey /LANG=1033 "ProductName" "AI Reaction Studio"
 VIAddVersionKey /LANG=1033 "FileDescription" "AI Reaction Studio development preview installer"
-VIAddVersionKey /LANG=1033 "FileVersion" "0.2.0.0"
+VIAddVersionKey /LANG=1033 "FileVersion" "0.4.0.0"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "AI Reaction Studio contributors"
 !define MUI_ICON "..\..\apps\reaction-studio\assets\icon.ico"
 !define MUI_UNICON "..\..\apps\reaction-studio\assets\icon.ico"
@@ -23,6 +23,15 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "AI Reaction Studio contributors"
 !insertmacro MUI_LANGUAGE "English"
 
 Function .onInit
+  check_running:
+    FindWindow $0 "" "AI Reaction Studio"
+    StrCmp $0 0 app_closed
+    IfSilent app_running_error
+    MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Close AI Reaction Studio before updating, then choose Retry." IDRETRY check_running
+    app_running_error:
+      SetErrorLevel 2
+      Abort
+  app_closed:
   SetShellVarContext current
   ${IfNot} ${RunningX64}
     MessageBox MB_OK|MB_ICONEXCLAMATION "This package requires 64-bit Windows."
@@ -44,14 +53,19 @@ FunctionEnd
 Section "AI Reaction Studio" Main
   SetShellVarContext current
   SetOutPath "$INSTDIR"
+  ClearErrors
   File /r "${STAGE}\*.*"
+  IfErrors 0 files_ready
+    SetErrorLevel 3
+    Abort "Could not install all files. Close running copies of the app and retry."
+  files_ready:
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\AI Reaction Studio"
   CreateShortcut "$SMPROGRAMS\AI Reaction Studio\AI Reaction Studio.lnk" "$INSTDIR\ai-reaction-studio.exe" "" "$INSTDIR\ai-reaction-studio.exe"
   CreateShortcut "$DESKTOP\AI Reaction Studio.lnk" "$INSTDIR\ai-reaction-studio.exe" "" "$INSTDIR\ai-reaction-studio.exe"
   CreateDirectory "$LOCALAPPDATA\AI Reaction Studio\Projects"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "DisplayName" "AI Reaction Studio 0.2 Preview"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "DisplayVersion" "0.2.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "DisplayName" "AI Reaction Studio 0.4 Preview"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "DisplayVersion" "0.4.0"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "Publisher" "AI Reaction Studio contributors"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\AIReactionStudio" "DisplayIcon" "$INSTDIR\ai-reaction-studio.exe"

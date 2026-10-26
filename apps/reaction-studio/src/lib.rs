@@ -1,7 +1,14 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::todo, clippy::unimplemented, clippy::unreachable))]
 pub mod analysis;
+pub mod avatar;
+pub mod download;
+pub mod pipeline;
 pub mod providers;
 pub mod render;
+pub mod revision;
+pub mod source;
+pub mod style;
+mod subtitles;
 
 use serde::{Deserialize, Serialize};
 use std::{
@@ -104,6 +111,9 @@ pub struct Script {
     pub intensity: u8,
     #[serde(default)]
     pub custom_instructions: String,
+    /// Reaction style id (`style.rs`); empty for scripts made before styles existed.
+    #[serde(default)]
+    pub style: String,
     pub review_required: bool,
     pub summary: String,
     pub segments: Vec<Segment>,
@@ -178,7 +188,12 @@ pub fn digest(path: &Path) -> Result<String> {
     Ok(format!("{:x}", hash.finalize()))
 }
 pub fn validate_script(analysis: &Analysis, script: &Script) -> Result<()> {
-    if script.schema_version != 1 || script.source_sha256 != analysis.source_sha256 || script.intensity > 100 || script.custom_instructions.len() > 4000 {
+    if script.schema_version != 1
+        || script.source_sha256 != analysis.source_sha256
+        || script.intensity > 100
+        || script.custom_instructions.len() > 4000
+        || script.style.len() > 32
+    {
         return Err("script schema, source fingerprint or intensity is invalid".into());
     }
     if script.segments.is_empty() || script.segments.len() > 8 {
@@ -217,9 +232,9 @@ pub fn validate_script(analysis: &Analysis, script: &Script) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    fn input() -> (Analysis, Script) {
+    pub(crate) fn input() -> (Analysis, Script) {
         let a = Analysis {
             schema_version: 1,
             source: PathBuf::from("source.mp4"),
@@ -238,6 +253,7 @@ mod tests {
             perspective: "Neutral".into(),
             intensity: 30,
             custom_instructions: String::new(),
+            style: String::new(),
             review_required: true,
             summary: String::new(),
             segments: vec![Segment {
@@ -285,6 +301,20 @@ mod tests {
     fn rejects_missing_evidence() {
         let (a, mut s) = input();
         s.segments[0].evidence_id = usize::MAX;
+        assert!(validate_script(&a, &s).is_err());
+    }
+    #[test]
+    fn scripts_saved_before_styles_still_load() {
+        let (_, s) = input();
+        let mut v = serde_json::to_value(&s).unwrap();
+        v.as_object_mut().unwrap().remove("style");
+        let old: Script = serde_json::from_value(v).unwrap();
+        assert_eq!(old.style, "");
+    }
+    #[test]
+    fn rejects_oversized_style_id() {
+        let (a, mut s) = input();
+        s.style = "x".repeat(33);
         assert!(validate_script(&a, &s).is_err());
     }
     #[test]

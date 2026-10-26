@@ -61,6 +61,22 @@ pub fn setup(p: &Progress) -> Result<()> {
     Ok(())
 }
 
+/// Model groups whose files are absent or the wrong size under `models_dir`. A quick check for the
+/// first-run screen; `LocalModel::start` still verifies hashes before use.
+pub fn missing_models(models_dir: &Path) -> Vec<&'static str> {
+    let speech = filmcraft_speech::models::find("whisper-tiny").map(|m| m.files.iter().map(|f| (f.name, f.size)).collect::<Vec<_>>()).unwrap_or_default();
+    let voices: Vec<(&str, u64)> = filmcraft_tts::catalog::FILES.iter().map(|f| (f.name, f.size)).collect();
+    let vision: Vec<(&str, u64)> = VISION_FILES.iter().map(|f| (f.name, f.size)).collect();
+    let writer: Vec<(&str, u64)> = WRITER_FILES.iter().map(|f| (f.name, f.size)).collect();
+    [("whisper-tiny", speech), ("kokoro-82m", voices), ("vision", vision), ("writer", writer)]
+        .into_iter()
+        .filter(|(group, files)| {
+            files.is_empty() || files.iter().any(|(name, size)| fs::metadata(models_dir.join(group).join(name)).map(|m| m.len()).ok() != Some(*size))
+        })
+        .map(|(group, _)| group)
+        .collect()
+}
+
 pub trait ChatProvider {
     fn chat(&self, messages: Value, schema: Option<Value>, max_tokens: usize) -> Result<String>;
 }
@@ -173,5 +189,25 @@ impl ChatProvider for LocalModel {
             return Err("invalid local model response length".into());
         }
         Ok(text.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn empty_or_wrong_sized_model_folders_are_reported_missing() {
+        let d = std::env::temp_dir().join(format!("reaction-models-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        assert_eq!(missing_models(&d), vec!["whisper-tiny", "kokoro-82m", "vision", "writer"]);
+        let writer = d.join("writer");
+        fs::create_dir_all(&writer).unwrap();
+        fs::write(writer.join(WRITER_FILES[0].name), b"truncated").unwrap();
+        assert!(missing_models(&d).contains(&"writer"));
+        let f = fs::File::create(writer.join(WRITER_FILES[0].name)).unwrap();
+        f.set_len(WRITER_FILES[0].size).unwrap();
+        drop(f);
+        assert!(!missing_models(&d).contains(&"writer"));
+        let _ = fs::remove_dir_all(&d);
     }
 }

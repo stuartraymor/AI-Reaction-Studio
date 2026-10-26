@@ -39,7 +39,7 @@ try {
     # Keep the generated uninstall manifest outside the packaged folder.
     $manifest=Join-Path (Split-Path $stage -Parent) ((Split-Path $stage -Leaf)+'-uninstall.nsh')
     Set-Content -LiteralPath $manifest -Value $lines -Encoding utf8
-    $installer=Join-Path $OutputDirectory 'AI-Reaction-Studio-0.2.0-Preview-Setup.exe'
+    $installer=Join-Path $OutputDirectory 'AI-Reaction-Studio-0.4.0-Preview-Setup.exe'
     & (Join-Path $NsisDirectory 'makensis.exe') ('/DSTAGE='+$stage) ('/DOUTPUT='+$installer) ('/DUNINSTALL_MANIFEST='+$manifest) (Join-Path $PSScriptRoot 'reaction-studio.nsi')
     if($LASTEXITCODE){throw 'Installer compilation failed'}
     Get-FileHash -LiteralPath $installer -Algorithm SHA256 | Format-List

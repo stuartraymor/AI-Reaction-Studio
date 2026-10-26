@@ -170,9 +170,10 @@ pub fn sample_times(duration: i64, cuts: &[i64]) -> Vec<i64> {
     times
 }
 
+/// Perspectives the writer accepts; reaction styles in `style.rs` must map onto these.
+pub const PERSPECTIVES: [&str; 8] = ["Supportive", "Opposing", "Neutral", "Alternative", "Debate", "Comedy", "Educational", "Custom"];
 pub fn generate(a: &Analysis, perspective: &str, intensity: u8, instructions: &str, count: usize, p: &Progress) -> Result<Script> {
-    let allowed = ["Supportive", "Opposing", "Neutral", "Alternative", "Debate", "Comedy", "Educational", "Custom"];
-    if !allowed.contains(&perspective) || intensity > 100 || instructions.len() > 4000 || !(1..=4).contains(&count) {
+    if !PERSPECTIVES.contains(&perspective) || intensity > 100 || instructions.len() > 4000 || !(1..=4).contains(&count) {
         return Err("invalid perspective, intensity, instructions or reaction count".into());
     }
     let candidates: Vec<&Evidence> = a.evidence.iter().filter(|e| e.end > 0 && e.end < a.duration).collect();
@@ -261,6 +262,7 @@ pub fn generate(a: &Analysis, perspective: &str, intensity: u8, instructions: &s
         perspective: perspective.into(),
         intensity,
         custom_instructions: instructions.into(),
+        style: String::new(),
         review_required: true,
         summary: raw.get("summary").and_then(Value::as_str).unwrap_or("").into(),
         segments,
@@ -271,7 +273,7 @@ pub fn generate(a: &Analysis, perspective: &str, intensity: u8, instructions: &s
     Ok(script)
 }
 
-fn spoken_text(text: &str) -> Result<String> {
+pub(crate) fn spoken_text(text: &str) -> Result<String> {
     let text = text.trim();
     let complete = text.trim_end_matches(['"', '\'', '”', '’', ')', ']']);
     let text = if complete.ends_with(['.', '?', '!']) {

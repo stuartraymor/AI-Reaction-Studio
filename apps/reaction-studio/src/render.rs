@@ -1,3 +1,5 @@
+use crate::avatar::Pose;
+use crate::style::Mood;
 use crate::{Analysis, Progress, Result, Script, TICKS, digest, exec, id, read_capped, save_json, validate_script};
 use filmcraft_project::ClipId;
 use filmcraft_time::{FrameRate, Tick};
@@ -15,16 +17,57 @@ fn shape(s: &mut filmcraft_engine::Session, clip: Option<u64>, pos: [i32; 2], si
     exec(s, "graphics.set", json!({"clip":c,"layer":l,"props":{"fill_color":color}}))?;
     Ok((c, l))
 }
-fn avatar(s: &mut filmcraft_engine::Session, start: Tick, hold: Tick, voice: &Value, color: &str, p: &Progress) -> Result<()> {
-    let (c, _) = shape(s, None, [550, 275], [120, 130], color, start, hold)?;
-    shape(s, Some(c), [530, 258], [15, 20], "#ffffff", start, hold)?;
-    shape(s, Some(c), [572, 258], [15, 20], "#ffffff", start, hold)?;
-    let (_, mouth) = shape(s, Some(c), [550, 302], [38, 5], "#171126", start, hold)?;
-    let effect = s
-        .active_sequence()
-        .and_then(|q| q.find_item(ClipId(c)))
-        .and_then(|(_, c)| filmcraft_project::graphic::layer_indices(&c.effects).get(mouth as usize).copied())
-        .ok_or("mouth layer not found")?;
+/// The figure's layers, in creation order on one graphic clip, and their neutral positions/sizes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Part {
+    Body,
+    Eye(usize),
+    Brow(usize),
+    Mouth,
+}
+const BODY: [f64; 2] = [550.0, 275.0];
+const EYES: [[f64; 2]; 2] = [[530.0, 258.0], [572.0, 258.0]];
+const BROWS: [[f64; 2]; 2] = [[530.0, 240.0], [572.0, 240.0]];
+const MOUTH: [f64; 2] = [550.0, 302.0];
+const INK: &str = "#171126";
+/// Every (layer, param, value) to keyframe for one pose. `face` false = mouth only (the mouth is
+/// sampled twice as often as the rest of the face to follow speech).
+pub(crate) fn face_keys(pose: &Pose, mouth: f64, face: bool) -> Vec<(Part, &'static str, Value)> {
+    let bob = f64::from(pose.bob);
+    let mut keys = vec![(Part::Mouth, "position", json!([MOUTH[0], MOUTH[1] + bob])), (Part::Mouth, "size", json!([38.0, mouth]))];
+    if face {
+        keys.push((Part::Body, "position", json!([BODY[0], BODY[1] + bob])));
+        for (i, (eye, brow)) in EYES.iter().zip(BROWS.iter()).enumerate() {
+            let raise = f64::from(pose.brow_raise.get(i).copied().unwrap_or(0.0));
+            keys.push((Part::Eye(i), "position", json!([eye[0], eye[1] + bob])));
+            keys.push((Part::Eye(i), "size", json!([15.0, (20.0 * f64::from(pose.eye_open)).max(2.0)])));
+            keys.push((Part::Brow(i), "position", json!([brow[0], brow[1] + bob - raise])));
+            keys.push((Part::Brow(i), "rotation", json!(f64::from(pose.brow_tilt.get(i).copied().unwrap_or(0.0)))));
+        }
+    }
+    keys
+}
+fn layer_effect(s: &filmcraft_engine::Session, clip: u64, layer: u64) -> Result<usize> {
+    s.active_sequence()
+        .and_then(|q| q.find_item(ClipId(clip)))
+        .and_then(|(_, c)| filmcraft_project::graphic::layer_indices(&c.effects).get(usize::try_from(layer).ok()?).copied())
+        .ok_or_else(|| "figure layer not found".into())
+}
+#[allow(clippy::too_many_arguments)]
+fn avatar(s: &mut filmcraft_engine::Session, start: Tick, hold: Tick, voice: &Value, color: &str, mood: Mood, gain: f32, p: &Progress) -> Result<()> {
+    let (c, body) = shape(s, None, [550, 275], [120, 130], color, start, hold)?;
+    let mut layers = vec![(Part::Body, body)];
+    for (i, [x, y]) in EYES.iter().enumerate() {
+        layers.push((Part::Eye(i), shape(s, Some(c), [*x as i32, *y as i32], [15, 20], "#ffffff", start, hold)?.1));
+    }
+    for (i, [x, y]) in BROWS.iter().enumerate() {
+        layers.push((Part::Brow(i), shape(s, Some(c), [*x as i32, *y as i32], [22, 5], INK, start, hold)?.1));
+    }
+    layers.push((Part::Mouth, shape(s, Some(c), [550, 302], [38, 5], INK, start, hold)?.1));
+    let mut effects = Vec::new();
+    for (part, layer) in layers {
+        effects.push((part, layer_effect(s, c, layer)?));
+    }
     let wav = read_capped(Path::new(voice.get("path").and_then(Value::as_str).ok_or("voice path missing")?), 64_000_000)?;
     if wav.get(36..40) != Some(b"data") {
         return Err("unexpected narration WAV layout".into());
@@ -40,20 +83,33 @@ fn avatar(s: &mut filmcraft_engine::Session, start: Tick, hold: Tick, voice: &Va
     let frame = FrameRate { num: 24, den: 1 }.frame_duration();
     for f in (0..hold.0 / frame.0).step_by(2) {
         if f % 120 == 0 {
-            p.step("Animating speech-driven mouth keyframes")?;
+            p.step("Animating the reacting figure")?;
         }
         let n = usize::try_from(Tick(f * frame.0).to_units_floor(rate as i64))?;
         let window = samples.get(n..n.saturating_add(rate as usize / 12).min(samples.len())).unwrap_or(&[]);
         let rms = if window.is_empty() { 0.0 } else { (window.iter().map(|x| f64::from(*x).powi(2)).sum::<f64>() / window.len() as f64).sqrt() };
-        exec(
-            s,
-            "effects.setParam",
-            json!({"clip":c,"effect":effect,"param":"size","value":[38.0,(4.0+rms*120.0).clamp(4.0,26.0)],"time":(start+Tick(f*frame.0)).0,"keyframe":true}),
-        )?;
+        let at = start + Tick(f * frame.0);
+        let pose = crate::avatar::pose(mood, gain, Tick(f * frame.0).seconds());
+        for (part, param, value) in face_keys(&pose, crate::avatar::mouth_height(rms, gain), f % 4 == 0) {
+            let effect = effects.iter().find(|(p, _)| *p == part).map(|(_, e)| *e).ok_or("figure layer missing")?;
+            exec(s, "effects.setParam", json!({"clip":c,"effect":effect,"param":param,"value":value,"time":at.0,"keyframe":true}))?;
+        }
     }
     Ok(())
 }
 pub fn render(a: &Analysis, script: &Script, out: &Path, voice: &str, character: &str, approved: bool, p: &Progress) -> Result<()> {
+    render_with_subtitles(a, script, out, voice, character, approved, false, p)
+}
+pub fn render_with_subtitles(
+    a: &Analysis,
+    script: &Script,
+    out: &Path,
+    voice: &str,
+    character: &str,
+    approved: bool,
+    subtitles: bool,
+    p: &Progress,
+) -> Result<()> {
     if !approved {
         return Err("review and approve the generated script before rendering".into());
     }
@@ -86,6 +142,11 @@ pub fn render(a: &Analysis, script: &Script, out: &Path, voice: &str, character:
     }
     let item = r.get("items").and_then(Value::as_array).and_then(|x| x.first()).and_then(Value::as_u64).ok_or("source not imported")?;
     exec(&mut s, "file.newSequence", json!({"name":"AI Reaction Studio","width":640,"height":360,"fps":24,"video":3,"audio":2}))?;
+    if subtitles {
+        exec(&mut s, "captions.newTrack", json!({"name":"Reaction commentary (estimated timing)","language":"en"}))?;
+        exec(&mut s, "captions.setStyle", json!({"track":"C1","size":20,"background":true,"anchor":"bottom","margin":0.40,"outline":1}))?;
+    }
+    let (mood, gain) = crate::style::motion(&script.style, &script.perspective, script.intensity);
     let frame = FrameRate { num: 24, den: 1 }.frame_duration();
     let rate = FrameRate { num: 24, den: 1 };
     let mut source_pos = Tick::ZERO;
@@ -110,7 +171,10 @@ pub fn render(a: &Analysis, script: &Script, out: &Path, voice: &str, character:
         let hc = held.get("clips").and_then(Value::as_array).and_then(|x| x.first()).and_then(Value::as_u64).ok_or("hold clip missing")?;
         exec(&mut s, "clip.frameHoldOptions", json!({"clips":[hc],"holdOn":"in"}))?;
         exec(&mut s, "timeline.trim", json!({"clip":hc,"edge":"out","mode":"regular","delta":(hold-frame).0}))?;
-        avatar(&mut s, timeline_pos, hold, &narration, color, p)?;
+        avatar(&mut s, timeline_pos, hold, &narration, color, mood, gain, p)?;
+        if subtitles {
+            crate::subtitles::add(&mut s, &r.commentary, timeline_pos, Tick(speech))?;
+        }
         exec(
             &mut s,
             "graphics.newText",
@@ -128,6 +192,10 @@ pub fn render(a: &Analysis, script: &Script, out: &Path, voice: &str, character:
             json!({"item":item,"track":"V1","audioTrack":"A1","sourceIn":source_pos.0,"time":timeline_pos.0,"duration":remaining.0}),
         )?;
     }
+    if subtitles {
+        exec(&mut s, "captions.export", json!({"path":out.join("reaction.srt"),"track":"C1"}))?;
+        save_json(&out.join("captions.json"), &exec(&mut s, "captions.list", json!({}))?)?;
+    }
     exec(&mut s, "file.saveAs", json!({"path":out.join("reaction.fcproj")}))?;
     let before = exec(&mut s, "sequence.inspect", json!({}))?;
     save_json(&out.join("timeline.json"), &before)?;
@@ -137,7 +205,7 @@ pub fn render(a: &Analysis, script: &Script, out: &Path, voice: &str, character:
     let job = exec(
         &mut s,
         "file.exportMedia",
-        json!({"path":out.join("reaction.mp4"),"format":"h264","hardwareEncoding":"off","width":640,"height":360,"fps":24,"wait":false}),
+        json!({"path":out.join("reaction.mp4"),"format":"h264","hardwareEncoding":"off","width":640,"height":360,"fps":24,"burnCaptions":subtitles,"wait":false}),
     )?;
     let job_id = id(&job, "job")?;
     loop {
@@ -162,14 +230,59 @@ pub fn render(a: &Analysis, script: &Script, out: &Path, voice: &str, character:
         return Err("saved project has missing media".into());
     }
     let after = exec(&mut reopened, "sequence.inspect", json!({}))?;
+    if subtitles {
+        let original_captions = exec(&mut s, "captions.list", json!({}))?;
+        let reopened_captions = exec(&mut reopened, "captions.list", json!({}))?;
+        if original_captions != reopened_captions {
+            return Err("caption tracks changed on project reopen".into());
+        }
+        save_json(&out.join("reopened-captions.json"), &reopened_captions)?;
+    }
     if ["video", "audio", "duration", "durationFrames"].iter().any(|key| before.get(key) != after.get(key)) {
         return Err("saved project changed on reopen".into());
     }
     save_json(&out.join("reopened-timeline.json"), &after)?;
     save_json(
         &out.join("production.json"),
-        &json!({"complete":true,"source_sha256":a.source_sha256,"script_sha256":digest(&out.join("approved-script.json"))?,"cloudUploads":0,"voice":voice,"character":character,"editingStyle":"Pause and React","projectReopenVerified":true}),
+        &json!({"complete":true,"source_sha256":a.source_sha256,"script_sha256":digest(&out.join("approved-script.json"))?,"cloudUploads":0,"voice":voice,"character":character,"style":script.style,"mood":format!("{mood:?}"),"commentarySubtitles":subtitles,"captionTiming":"estimated from narration duration and word counts","editingStyle":"Pause and React","projectReopenVerified":true}),
     )?;
     p.step("Reaction video and editable project are ready")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::avatar::pose;
+    const MOODS: [Mood; 5] = [Mood::Calm, Mood::Excited, Mood::Skeptical, Mood::Amused, Mood::Fierce];
+    #[test]
+    fn face_keys_cover_every_layer_and_stay_on_screen() {
+        for mood in MOODS {
+            for i in 0..200 {
+                let keys = face_keys(&pose(mood, 1.0, i as f64 * 0.05), 26.0, true);
+                for part in [Part::Body, Part::Eye(0), Part::Eye(1), Part::Brow(0), Part::Brow(1), Part::Mouth] {
+                    assert!(keys.iter().any(|(p, _, _)| *p == part), "{part:?}");
+                }
+                for (_, param, value) in &keys {
+                    let nums: Vec<f64> =
+                        value.as_array().map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_else(|| value.as_f64().into_iter().collect());
+                    assert!(!nums.is_empty() && nums.iter().all(|v| v.is_finite()), "{param} {value}");
+                    if *param == "position" {
+                        assert!((0.0..=640.0).contains(&nums[0]) && (0.0..=360.0).contains(&nums[1]), "{value}");
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn mouth_only_keys_skip_the_rest_of_the_face() {
+        let keys = face_keys(&crate::avatar::NEUTRAL, 4.0, false);
+        assert!(keys.iter().all(|(p, _, _)| *p == Part::Mouth) && keys.len() == 2);
+    }
+    #[test]
+    fn eyes_never_close_to_zero_height() {
+        let closed = Pose { eye_open: 0.0, ..crate::avatar::NEUTRAL };
+        let eye = face_keys(&closed, 4.0, true).into_iter().find(|(p, k, _)| *p == Part::Eye(0) && *k == "size").unwrap().2;
+        assert!(eye[1].as_f64().unwrap() >= 2.0);
+    }
 }
